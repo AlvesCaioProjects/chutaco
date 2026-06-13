@@ -6,6 +6,8 @@ import Register from './pages/Register'
 import Home from './pages/Home'
 import Matches from './pages/Matches'
 import Ranking from './pages/Ranking'
+import History from './pages/History'
+import Leagues from './pages/Leagues'
 import Admin from './pages/Admin'
 
 export default function App() {
@@ -36,6 +38,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Ranking />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <History />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leagues"
+            element={
+              <ProtectedRoute>
+                <Leagues />
               </ProtectedRoute>
             }
           />

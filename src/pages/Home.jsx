@@ -58,22 +58,22 @@ export default function Home() {
           </div>
 
           {/* History Card */}
-          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/history')}>
             <div className="text-3xl mb-2">📋</div>
             <h2 className="text-xl font-bold text-gray-800 mb-2">Histórico</h2>
             <p className="text-gray-600 mb-4">Veja seus palpites anteriores e resultados</p>
-            <button disabled className="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg w-full cursor-not-allowed">
-              Em Breve
+            <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg w-full transition">
+              Ver Histórico
             </button>
           </div>
 
           {/* Leagues Card */}
-          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/leagues')}>
             <div className="text-3xl mb-2">👥</div>
             <h2 className="text-xl font-bold text-gray-800 mb-2">Minhas Ligas</h2>
             <p className="text-gray-600 mb-4">Crie ou entre em ligas com amigos</p>
-            <button disabled className="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg w-full cursor-not-allowed">
-              Em Breve
+            <button className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg w-full transition">
+              Ver Ligas
             </button>
           </div>
 
