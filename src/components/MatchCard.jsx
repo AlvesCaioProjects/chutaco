@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getFlag } from '../lib/flags'
 
 export default function MatchCard({ match, onPredictionChange }) {
   const [isBlocked, setIsBlocked] = useState(false)
@@ -65,7 +66,7 @@ export default function MatchCard({ match, onPredictionChange }) {
       <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4">
         {/* Team A */}
         <div className="text-center p-3 md:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p className="text-sm md:text-lg font-bold text-gray-800 dark:text-gray-100 mb-2 truncate">{match.team_a}</p>
+          <p className="text-sm md:text-lg font-bold text-gray-800 dark:text-gray-100 mb-2 truncate">{getFlag(match.team_a)} {match.team_a}</p>
           <button
             onClick={() => handlePredictionSelect('team_a')}
             disabled={isBlocked}
@@ -107,7 +108,7 @@ export default function MatchCard({ match, onPredictionChange }) {
 
         {/* Team B */}
         <div className="text-center p-3 md:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p className="text-sm md:text-lg font-bold text-gray-800 dark:text-gray-100 mb-2 truncate">{match.team_b}</p>
+          <p className="text-sm md:text-lg font-bold text-gray-800 dark:text-gray-100 mb-2 truncate">{getFlag(match.team_b)} {match.team_b}</p>
           <button
             onClick={() => handlePredictionSelect('team_b')}
             disabled={isBlocked}

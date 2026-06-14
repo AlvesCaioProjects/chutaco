@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { getFlag } from '../lib/flags'
 
 export default function History() {
   const [history, setHistory] = useState([])
@@ -165,12 +166,12 @@ export default function History() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex-1 text-center">
-                      <p className="text-sm md:text-lg font-bold text-gray-800">{match.team_a}</p>
+                      <p className="text-sm md:text-lg font-bold text-gray-800 dark:text-gray-100">{getFlag(match.team_a)} {match.team_a}</p>
                       {match.result === 'team_a' && <p className="text-xs text-green-600 font-bold mt-1">⭐ Resultado</p>}
                     </div>
                     <div className="px-2 md:px-4 text-gray-400 font-bold text-sm">vs</div>
                     <div className="flex-1 text-center">
-                      <p className="text-sm md:text-lg font-bold text-gray-800">{match.team_b}</p>
+                      <p className="text-sm md:text-lg font-bold text-gray-800 dark:text-gray-100">{getFlag(match.team_b)} {match.team_b}</p>
                       {match.result === 'team_b' && <p className="text-xs text-green-600 font-bold mt-1">⭐ Resultado</p>}
                     </div>
                   </div>
