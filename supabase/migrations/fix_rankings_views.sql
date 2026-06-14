@@ -30,7 +30,7 @@ SELECT
   )::INTEGER as current_streak
 FROM users u
 LEFT JOIN predictions p ON u.id = p.user_id
-LEFT JOIN matches m ON m.id = p.match_id AND m.result IS NOT NULL
+  AND EXISTS (SELECT 1 FROM matches m WHERE m.id = p.match_id AND m.result IS NOT NULL)
 GROUP BY u.id, u.username
 ORDER BY total_points DESC, accuracy_rate DESC, current_streak DESC;
 
@@ -65,6 +65,6 @@ SELECT
 FROM league_members lm
 JOIN users u ON lm.user_id = u.id
 LEFT JOIN predictions p ON u.id = p.user_id
-LEFT JOIN matches m ON m.id = p.match_id AND m.result IS NOT NULL
+  AND EXISTS (SELECT 1 FROM matches m WHERE m.id = p.match_id AND m.result IS NOT NULL)
 GROUP BY lm.league_id, u.id, u.username
 ORDER BY total_points DESC, accuracy_rate DESC, current_streak DESC;
