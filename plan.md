@@ -147,5 +147,5 @@
 | Fase 6: football-data.org | ✅ |
 | Fase 7: Admin Panel | ✅ |
 | Fase 8: Minhas Estatísticas | ✅ |
-| Fase 9: Responsividade | ⏳ Pendente |
+| Fase 9: Responsividade | ✅ |
 | Fase 10: Deploy | ⏳ Pendente |

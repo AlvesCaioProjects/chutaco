@@ -225,11 +225,11 @@ export default function Admin() {
               <table className="w-full">
                 <thead className="bg-gray-100 border-b border-gray-200">
                   <tr>
-                    <th className="px-4 py-3 text-left">Data/Hora</th>
-                    <th className="px-4 py-3 text-left">Jogo</th>
-                    <th className="px-4 py-3 text-center">Resultado Atual</th>
-                    <th className="px-4 py-3 text-center">Total Palpites</th>
-                    <th className="px-4 py-3 text-center">Ações</th>
+                    <th className="hidden sm:table-cell px-2 md:px-4 py-3 text-left text-sm">Data</th>
+                    <th className="px-2 md:px-4 py-3 text-left text-sm">Jogo</th>
+                    <th className="px-2 md:px-4 py-3 text-center text-sm">Resultado</th>
+                    <th className="hidden md:table-cell px-2 md:px-4 py-3 text-center text-sm">Palpites</th>
+                    <th className="px-2 md:px-4 py-3 text-center text-sm">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -238,29 +238,33 @@ export default function Admin() {
                       key={match.id}
                       className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
                     >
-                      <td className="px-4 py-3 text-sm">
+                      <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-xs md:text-sm">
                         {new Date(match.scheduled_time).toLocaleString('pt-BR')}
                       </td>
-                      <td className="px-4 py-3 font-bold">
-                        {match.team_a} <span className="text-gray-400 font-normal">vs</span> {match.team_b}
+                      <td className="px-2 md:px-4 py-3 font-bold text-sm md:text-base">
+                        <span className="md:hidden">{match.team_a.slice(0, 4)}...</span>
+                        <span className="hidden md:inline">{match.team_a}</span>
+                        <span className="text-gray-400 font-normal text-xs md:text-sm"> vs </span>
+                        <span className="md:hidden">{match.team_b.slice(0, 4)}...</span>
+                        <span className="hidden md:inline">{match.team_b}</span>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-2 md:px-4 py-3 text-center">
                         {match.result ? (
-                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold">
-                            {match.result === 'team_a' && match.team_a}
-                            {match.result === 'team_b' && match.team_b}
+                          <span className="bg-green-100 text-green-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-bold">
+                            {match.result === 'team_a' && (match.team_a.length > 8 ? match.team_a.slice(0, 8) + '...' : match.team_a)}
+                            {match.result === 'team_b' && (match.team_b.length > 8 ? match.team_b.slice(0, 8) + '...' : match.team_b)}
                             {match.result === 'draw' && 'Empate'}
                           </span>
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                      <td className="hidden md:table-cell px-2 md:px-4 py-3 text-center">
+                        <span className="bg-blue-100 text-blue-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm">
                           {match.predictions_count || 0}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-2 md:px-4 py-3 text-center">
                         {editingMatchId === match.id ? (
                           <div className="flex gap-2 justify-center">
                             <select

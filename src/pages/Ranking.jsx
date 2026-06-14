@@ -126,12 +126,12 @@ export default function Ranking() {
               <table className="w-full">
                 <thead className="bg-gray-200 border-b-2 border-gray-300">
                   <tr>
-                    <th className="px-4 py-3 text-left">Posição</th>
-                    <th className="px-4 py-3 text-left">Usuário</th>
-                    <th className="px-4 py-3 text-center">Pontos</th>
-                    <th className="px-4 py-3 text-center">Taxa de Acerto</th>
-                    <th className="px-4 py-3 text-center">Streak</th>
-                    <th className="px-4 py-3 text-center">Total de Palpites</th>
+                    <th className="px-2 md:px-4 py-3 text-left">#</th>
+                    <th className="px-2 md:px-4 py-3 text-left">Usuário</th>
+                    <th className="px-2 md:px-4 py-3 text-center">Pts</th>
+                    <th className="hidden sm:table-cell px-2 md:px-4 py-3 text-center">Taxa</th>
+                    <th className="hidden md:table-cell px-2 md:px-4 py-3 text-center">Streak</th>
+                    <th className="hidden md:table-cell px-2 md:px-4 py-3 text-center">Palpites</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -146,38 +146,38 @@ export default function Ranking() {
                           : 'bg-gray-50'
                       } hover:bg-gray-100 transition`}
                     >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {index === 0 && <span>🥇</span>}
-                          {index === 1 && <span>🥈</span>}
-                          {index === 2 && <span>🥉</span>}
-                          <span className="font-bold">#{index + 1}</span>
+                      <td className="px-2 md:px-4 py-3">
+                        <div className="flex items-center gap-1 md:gap-2">
+                          {index === 0 && <span className="text-sm md:text-base">🥇</span>}
+                          {index === 1 && <span className="text-sm md:text-base">🥈</span>}
+                          {index === 2 && <span className="text-sm md:text-base">🥉</span>}
+                          <span className="font-bold text-sm md:text-base">#{index + 1}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 md:px-4 py-3">
                         <div>
-                          <p>{rank.username}</p>
+                          <p className="text-sm md:text-base">{rank.username}</p>
                           {rank.id === user.id && (
-                            <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">
+                            <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">
                               Você
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-center font-bold text-lg">
+                      <td className="px-2 md:px-4 py-3 text-center font-bold text-base md:text-lg">
                         {rank.total_points}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                      <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-center">
+                        <span className="bg-blue-100 text-blue-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm">
                           {rank.accuracy_rate?.toFixed(1)}%
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm">
+                      <td className="hidden md:table-cell px-2 md:px-4 py-3 text-center">
+                        <span className="bg-orange-100 text-orange-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm">
                           {rank.current_streak}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">
+                      <td className="hidden md:table-cell px-2 md:px-4 py-3 text-center text-gray-600 text-sm">
                         {rank.total_predictions}
                       </td>
                     </tr>

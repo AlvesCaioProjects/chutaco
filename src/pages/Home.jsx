@@ -1,32 +1,40 @@
 import { useAuth } from '../hooks/useAuth'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 export default function Home() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
 
+  const navItems = [
+    { path: '/', icon: '🏠', label: 'Início' },
+    { path: '/matches', icon: '⚽', label: 'Jogos' },
+    { path: '/ranking', icon: '🏆', label: 'Ranking' },
+    { path: '/leagues', icon: '👥', label: 'Ligas' },
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 pb-16 md:pb-0">
       {/* Header */}
-      <header className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 shadow-lg">
+      <header className="bg-gradient-to-r from-green-600 to-green-700 text-white p-3 md:p-4 shadow-lg">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Chutaço</h1>
-            <p className="text-green-100">Palpites para Copa 2026</p>
+            <h1 className="text-xl md:text-3xl font-bold">Chutaço</h1>
+            <p className="text-green-100 text-xs md:text-sm">Palpites para Copa 2026</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <div className="text-right">
-              <p className="font-bold">{user?.username}</p>
-              {user?.isAdmin && <span className="text-xs bg-yellow-400 text-yellow-900 px-2 py-1 rounded">Admin</span>}
+              <p className="font-bold text-sm md:text-base">{user?.username}</p>
+              {user?.isAdmin && <span className="text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded">Admin</span>}
             </div>
             <button
               onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition"
+              className="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 md:py-2 px-3 md:px-4 rounded-lg transition text-sm"
             >
               Sair
             </button>
@@ -34,9 +42,29 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Bottom Nav (mobile) */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden">
+        <div className="flex justify-around items-center h-14">
+          {navItems.map(item => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center justify-center px-3 py-1 rounded-lg transition ${
+                location.pathname === item.path
+                  ? 'text-green-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <span className="text-lg">{item.icon}</span>
+              <span className="text-xs font-bold">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+      <main className="max-w-7xl mx-auto p-3 md:p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-4 md:mt-8">
           {/* Matches Card */}
           <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/matches')}>
             <div className="text-3xl mb-2">⚽</div>
