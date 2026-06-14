@@ -135,6 +135,14 @@ async function main() {
   const msg = `Synced ${matchCount} matches${errorCount ? ` (${errorCount} errors)` : ''}`
   console.log(`✅ ${msg}`)
 
+  // Recalculate prediction points
+  try {
+    await supabase.rpc('recalculate_points')
+    console.log('✅ Prediction points recalculated')
+  } catch (err) {
+    console.error(`⚠️ Failed to recalculate points: ${err.message}`)
+  }
+
   await supabase.from('sync_logs').insert({
     status: errorCount > matchCount ? 'error' : 'success',
     message: msg,

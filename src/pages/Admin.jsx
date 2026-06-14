@@ -73,6 +73,8 @@ export default function Admin() {
 
       if (uErr) throw uErr
 
+      await supabase.rpc('recalculate_points')
+
       setSuccess(`Resultado atualizado!`)
       await loadMatches()
     } catch (err) {
@@ -89,7 +91,7 @@ export default function Admin() {
       if (match?.result != null) {
         const { error: pErr } = await supabase
           .from('predictions')
-          .update({ points: 0, processed: false })
+          .update({ points: 0 })
           .eq('match_id', matchId)
 
         if (pErr) throw pErr
