@@ -8,8 +8,12 @@ function formatDate(date) {
   return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
-function toISODate(date) {
-  return date.toISOString().split('T')[0]
+function toLocalDateStr(date) {
+  const d = new Date(date)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export default function Matches() {
@@ -84,8 +88,8 @@ export default function Matches() {
   }
 
   const filteredMatches = matches.filter(m => {
-    const matchDate = toISODate(new Date(m.scheduled_time))
-    return matchDate === toISODate(selectedDate)
+    const matchDate = toLocalDateStr(new Date(m.scheduled_time))
+    return matchDate === toLocalDateStr(selectedDate)
   })
 
   const goToPrevDay = () => {
@@ -102,7 +106,7 @@ export default function Matches() {
 
   const goToToday = () => setSelectedDate(new Date())
 
-  const isToday = toISODate(selectedDate) === toISODate(new Date())
+  const isToday = toLocalDateStr(selectedDate) === toLocalDateStr(new Date())
 
   if (loading) {
     return (
