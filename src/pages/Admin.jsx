@@ -109,7 +109,7 @@ export default function Admin() {
     }
   }
 
-  if (!user?.is_admin) {
+  if (!user?.isAdmin && !user?.is_admin) {
     return (
       <div className="min-h-screen page-bg p-4">
         <div className="max-w-4xl mx-auto text-center py-12">

@@ -15,7 +15,13 @@ export function AuthProvider({ children }) {
       try {
         const storedUser = localStorage.getItem('user')
         if (storedUser) {
-          setUser(JSON.parse(storedUser))
+          const parsed = JSON.parse(storedUser)
+          if (parsed.is_admin !== undefined && parsed.isAdmin === undefined) {
+            parsed.isAdmin = parsed.is_admin
+            delete parsed.is_admin
+            localStorage.setItem('user', JSON.stringify(parsed))
+          }
+          setUser(parsed)
         }
       } catch (err) {
         console.error('Error checking stored user:', err)
