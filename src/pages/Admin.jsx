@@ -10,10 +10,13 @@ export default function Admin() {
   const [success, setSuccess] = useState('')
   const [editingMatchId, setEditingMatchId] = useState(null)
   const [editingResult, setEditingResult] = useState(null)
+  const [syncLogs, setSyncLogs] = useState([])
+  const [lastSync, setLastSync] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
     loadMatches()
+    loadSyncLogs()
   }, [])
 
   const loadMatches = async () => {
@@ -36,20 +39,21 @@ export default function Admin() {
     }
   }
 
-  const handleSync = async () => {
-    setSyncing(true)
-    setError('')
-    setSuccess('')
-
+  const loadSyncLogs = async () => {
     try {
-      // TODO: Implementar chamada à API football-data.org
-      // Por enquanto, simular sucesso
-      setSuccess('✅ Sincronização concluída com sucesso!')
-      await loadMatches()
+      const { data, error: logError } = await supabase
+        .from('sync_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (logError) throw logError
+      setSyncLogs(data || [])
+
+      const last = data?.[0]
+      if (last) setLastSync(last.created_at)
     } catch (err) {
-      setError(`❌ Erro ao sincronizar: ${err.message}`)
-    } finally {
-      setSyncing(false)
+      console.error('Error loading sync logs:', err)
     }
   }
 
@@ -62,7 +66,6 @@ export default function Admin() {
         return
       }
 
-      // Get all predictions for this match
       const { data: predictions, error: fetchError } = await supabase
         .from('predictions')
         .select('*')
@@ -70,7 +73,6 @@ export default function Admin() {
 
       if (fetchError) throw fetchError
 
-      // Update match with result
       const { error: updateError } = await supabase
         .from('matches')
         .update({ result, updated_at: new Date().toISOString() })
@@ -78,13 +80,11 @@ export default function Admin() {
 
       if (updateError) throw updateError
 
-      // Calculate points for each prediction
       const updates = predictions.map(pred => ({
         id: pred.id,
         points: pred.prediction === result ? 1 : 0,
       }))
 
-      // Bulk update predictions
       for (const update of updates) {
         const { error: predError } = await supabase
           .from('predictions')
@@ -118,7 +118,6 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
       <header className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white p-4 shadow-lg">
         <div className="max-w-6xl mx-auto">
           <button
@@ -132,7 +131,6 @@ export default function Admin() {
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-6xl mx-auto p-4">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
@@ -148,18 +146,69 @@ export default function Admin() {
 
         {/* Sync Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">📡 Sincronização com API</h2>
-          <p className="text-gray-600 mb-4">
-            Clique para sincronizar os dados mais recentes de football-data.org
-          </p>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded-lg transition"
-          >
-            {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar Agora'}
-          </button>
+          <h2 className="text-xl font-bold mb-4">📡 Sincronização football-data.org</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-sm text-gray-500">Última sincronização</p>
+              <p className="text-lg font-bold">
+                {lastSync
+                  ? new Date(lastSync).toLocaleString('pt-BR')
+                  : 'Nunca'}
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-sm text-gray-500">Total de logs</p>
+              <p className="text-lg font-bold">{syncLogs.length}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-sm text-gray-500">Último status</p>
+              <p className="text-lg font-bold">
+                {syncLogs[0]?.status === 'success' ? '✅ Sucesso' : syncLogs[0]?.status === 'error' ? '❌ Erro' : '-'}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="font-bold text-blue-900 mb-2">⚡ Sincronizar via script</h3>
+            <p className="text-sm text-blue-800 mb-3">
+              A API football-data.org não permite chamadas diretas do navegador.
+              Rode o comando abaixo no terminal para sincronizar:
+            </p>
+            <div className="bg-gray-900 text-green-400 rounded-lg p-4 text-sm font-mono mb-3">
+              node scripts/sync.cjs --api-key=SUA_CHAVE_AQUI
+            </div>
+            <p className="text-xs text-blue-700">
+              Ou edite o <code>.env.local</code> com <code>FOOTBALL_DATA_API_KEY=sua_chave</code> e rode apenas <code>node scripts/sync.cjs</code>
+            </p>
+          </div>
         </div>
+
+        {/* Sync Logs */}
+        {syncLogs.length > 0 && (
+          <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold">📝 Histórico de Sincronização</h2>
+            </div>
+            <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
+              {syncLogs.map(log => (
+                <div key={log.id} className="px-4 py-2 flex items-center gap-3 text-sm">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    log.status === 'success'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {log.status === 'success' ? '✅' : '❌'}
+                  </span>
+                  <span className="text-gray-600 flex-1">{log.message}</span>
+                  <span className="text-gray-400 text-xs">
+                    {new Date(log.created_at).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Matches Management */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -265,13 +314,16 @@ export default function Admin() {
           <h3 className="font-bold text-blue-900 mb-3">📋 Instruções</h3>
           <ul className="text-sm text-blue-800 space-y-2">
             <li>
-              <strong>Sincronizar:</strong> Atualiza todos os matches com dados da API
+              <strong>1. API Key:</strong> Coloque a chave no <code>.env.local</code> ou passe via <code>--api-key</code>
             </li>
             <li>
-              <strong>Editar Resultado:</strong> Selecione o resultado de um match para atualizar pontos
+              <strong>2. Sincronizar:</strong> Rode <code>npm run sync</code> no terminal para buscar matches da API
             </li>
             <li>
-              <strong>Automático:</strong> Pontos são recalculados automaticamente para todos os usuários
+              <strong>3. Editar Resultado:</strong> Use a tabela abaixo para ajustar manualmente resultados
+            </li>
+            <li>
+              <strong>Automático:</strong> Pontos são recalculados automaticamente ao editar um resultado
             </li>
           </ul>
         </div>

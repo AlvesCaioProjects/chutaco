@@ -8,6 +8,7 @@ import Matches from './pages/Matches'
 import Ranking from './pages/Ranking'
 import History from './pages/History'
 import Leagues from './pages/Leagues'
+import Stats from './pages/Stats'
 import Admin from './pages/Admin'
 
 export default function App() {
@@ -46,6 +47,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <History />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stats"
+            element={
+              <ProtectedRoute>
+                <Stats />
               </ProtectedRoute>
             }
           />

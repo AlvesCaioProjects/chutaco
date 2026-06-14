@@ -78,12 +78,12 @@ export default function Home() {
           </div>
 
           {/* Stats Card */}
-          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+          <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition cursor-pointer" onClick={() => navigate('/stats')}>
             <div className="text-3xl mb-2">📊</div>
             <h2 className="text-xl font-bold text-gray-800 mb-2">Minhas Estatísticas</h2>
             <p className="text-gray-600 mb-4">Veja sua taxa de acerto e streak</p>
-            <button disabled className="bg-gray-400 text-white font-bold py-2 px-4 rounded-lg w-full cursor-not-allowed">
-              Em Breve
+            <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg w-full transition">
+              Ver Estatísticas
             </button>
           </div>
 

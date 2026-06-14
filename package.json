@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "sync": "node scripts/sync.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

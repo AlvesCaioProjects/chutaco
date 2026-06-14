@@ -2,39 +2,41 @@
 
 ## Stack Final
 - **Frontend**: React 18 + Vite + Tailwind CSS
-- **Backend**: Supabase (PostgreSQL + Auth + Edge Functions + Realtime)
+- **Backend**: Supabase (PostgreSQL + Auth custom + Realtime)
 - **API Externa**: football-data.org (plano free)
 - **Banco**: PostgreSQL (Supabase-hosted)
 - **Deploy**: Vercel (frontend) + Supabase (backend/DB)
-- **Auth**: Supabase Auth (username/password local)
+- **Auth**: Custom (tabela `users` + bcrypt)
 
 ---
 
-## Arquitetura Proposta
+## Arquitetura
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │ FRONTEND (React + Vite)                             │
-│ - Autenticação (Supabase Auth)                       │
-│ - Dashboard (Ranking + Palpites)                     │
-│ - Histórico filtrado (jogo/rodada/país)              │
-│ - Ligas privadas (CRUD + compartilhamento)           │
-│ - Admin Panel (Sync status + manual update)          │
+│ - Autenticação (users + bcrypt)                      │
+│ - Dashboard (Home com cards)                         │
+│ - Matches (palpites com bloqueio 5min)               │
+│ - Ranking global                                     │
+│ - Histórico filtrado (data/time)                     │
+│ - Ligas privadas (CRUD + ranking)                    │
+│ - Estatísticas pessoais                              │
+│ - Admin Panel (sync + gerenciar resultados)          │
 └──────────────┬──────────────────────────────────────┘
                │
 ┌──────────────┴──────────────────────────────────────┐
 │ SUPABASE (Backend + Database)                       │
-│ - PostgreSQL (Users, Matches, Predictions, Leagues) │
-│ - Realtime subscriptions (ranking updates)          │
-│ - RLS (Row Level Security) — autorização            │
-│ - Edge Functions (sync trigger + scoring logic)     │
-│ - Auth integration (JWT local)                      │
+│ - PostgreSQL (todas as tabelas, RLS desabilitado)   │
+│ - Realtime subscriptions                            │
+│ - Views: global_rankings, league_rankings           │
+│ - sync_logs + app_config tables                     │
 └──────────────┬──────────────────────────────────────┘
                │
 ┌──────────────┴──────────────────────────────────────┐
 │ EXTERNAL: football-data.org API                     │
-│ - Fetch matches, results, schedule                  │
-│ - Trigger via Edge Function (cron-like)             │
+│ - Fetch matches + resultados via script Node.js     │
+│ - Admin clica "Sincronizar" e roda npm run sync     │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -42,34 +44,26 @@
 
 ## Tolerância a Falhas (API)
 
-- Sincronização automática a cada 30-60min da football-data.org
-- Se falhar 3x consecutivas → ativa modo "admin atualiza manual" (dashboard simples)
-- Nada se deleta → apenas archival lógico (competitions.status = 'archived')
-- Notificações in-app: estruturar banco para permitir depois (não bloquear v1)
-
-### Matriz de Falhas
-
 | Cenário | Ação |
 |---|---|
-| API retorna sucesso | Salvar em matches, log "OK" |
-| API falha (timeout/erro) | Log falha + retry em 15min |
-| 3 falhas seguidas | Ativar flag `manual_sync_needed` em DB |
-| Admin vê flag | Dashboard avisa "Sync falhou, atualizar manual?" |
-| Admin clica "Atualizar" | Modal com form: seleciona match + resultado |
-| Admin submete | Salva em DB, limpa flag, calcula pontos automático |
-| Pós-Copa | Manter tudo, apenas competitions.status = 'archived' |
+| Script roda com sucesso | Salvar em matches, log "OK" |
+| Script falha (timeout/erro) | Log falha, admin vê no dashboard |
+| Admin precisa atualizar | Formulário manual na tabela de matches |
 
 ---
 
 ## Schema do Banco
 
-- **users**: id, username, password_hash, created_at
+- **users**: id, username, password_hash, is_admin, created_at
+- **app_config**: key, value (ex: football_data_api_key)
 - **competitions**: id, name, status (active/archived)
-- **matches**: id, competition_id, team_a, team_b, scheduled_time, result, sync_status
-- **predictions**: id, user_id, match_id, prediction (team_a/team_b/draw), points, created_at
-- **leagues**: id, name, owner_id, code, created_at
+- **matches**: id, competition_id, team_a, team_b, scheduled_time, result, external_id, last_synced
+- **predictions**: id, user_id, match_id, prediction (team_a/team_b/draw), points (0/1)
+- **sync_logs**: id, status (success/error), message, created_at
+- **leagues**: id, name, owner_id, code (UUID), is_public
 - **league_members**: id, league_id, user_id
-- **league_rankings**: id, league_id, user_id, points, rank (view materializada)
+- **global_rankings** (view): id, username, total_points, total_predictions, accuracy_rate, current_streak
+- **league_rankings** (view): league_id, user, points, predictions, accuracy, streak
 
 ---
 
@@ -78,78 +72,66 @@
 ### Fase 1 — Setup & Banco de Dados
 - [x] Criar projeto Vite + React
 - [x] Configurar Supabase (org, projeto, env vars)
-- [x] Schema SQL (tabelas + RLS)
-- [x] Edge Function para sync automático
+- [x] Schema SQL (tabelas + views)
+- [x] Dados de teste (matches + predictions)
 
 ### Fase 2 — Autenticação & Profile
-- [x] Supabase Auth (username/password local)
-- [x] Página /auth/register (username 3+ chars, senha 6+ chars)
-- [x] Página /auth/login (persistência token + sessão)
-- [x] ProtectedRoute
+- [x] Login/Register com bcrypt + users table
+- [x] Página /register (username 3+ chars, senha 6+ chars)
+- [x] Página /login (persistência em localStorage)
+- [x] ProtectedRoute (com requireAdmin)
 
 ### Fase 3 — Matches & Predictions
-- [x] Listar matches do dia
+- [x] Listar matches futuros
 - [x] Palpitar com bloqueio 5min antes da partida
-- [x] Salvar prediction em DB
-- [x] Realtime subscriptions
+- [x] CRUD de predictions (insert/update)
+- [x] MatchCard component
 
 ### Fase 4 — Histórico de Palpites
-- [ ] Dashboard ranking global
-- [ ] Histórico filtrado (rodada/jogo/país)
-- [ ] View materializada para ranking
+- [x] Página /history
+- [x] Filtro por data
+- [x] Filtro por time/país (busca textual)
+- [x] Exibir: palpite vs resultado vs pontos
+- [x] Sumário: acertos, taxa, total
 
 ### Fase 5 — Ligas Privadas
-- [ ] Criar liga (gera código UUID)
-- [ ] Entrar em liga com código
-- [ ] Ranking por liga
-- [ ] Sair da liga
+- [x] Página /leagues
+- [x] Criar liga (nome → gera UUID)
+- [x] Entrar em liga por código
+- [x] Listar ligas do usuário (owner + member)
+- [x] Ranking por liga (view league_rankings)
+- [x] Sair da liga / Excluir liga
 
 ### Fase 6 — Integração football-data.org
-- [ ] Edge Function cron (30min durante Copa, 2x/dia fora)
-- [ ] Fetch matches + resultados
-- [ ] Log de sincronização (sync_logs)
-- [ ] Flag manual_sync_needed em falhas
+- [x] Script `scripts/sync.cjs` (Node.js)
+- [x] Comando `npm run sync`
+- [x] Tabela sync_logs para histórico
+- [x] Tabela app_config para API key
+- [x] Upsert por external_id (sem duplicar)
+- [x] 104 matches da Copa 2026 sincronizados
 
 ### Fase 7 — Admin Panel
-- [ ] Dashboard status da API
-- [ ] Formulário de update manual
-- [ ] Histórico de sync (sucesso/falha)
+- [x] Dashboard com status da última sync
+- [x] Botão de "Configurar API Key"
+- [x] Histórico de logs (sync_logs)
+- [x] Gerenciar resultados manualmente
+- [x] Cálculo automático de pontos
 
-### Fase 8 — Responsividade & Polish
-- [ ] Tailwind mobile-first
-- [ ] Componentes: MatchCard, Ranking table, Buttons
+### Fase 8 — Minhas Estatísticas
+- [x] Página /stats
+- [x] Cards: pontos, taxa, streak, total
+- [x] Barra de acertos vs erros
+- [x] Últimos palpites
+
+### Fase 9 — Responsividade & Polish
+- [ ] Tailwind mobile-first (já parcialmente responsivo)
 - [ ] Dark mode (nice to have)
+- [ ] Loading states consistentes
 
-### Fase 9 — Deploy
+### Fase 10 — Deploy
 - [ ] Vercel (frontend)
-- [ ] Variáveis de ambiente (.env.local)
+- [ ] Variáveis de ambiente
 - [ ] Supabase já hospedado
-
----
-
-## Verificação (Testes Manuais)
-
-```bash
-# 1. Register 2 users
-# 2. Create match (manual ou via sync)
-# 3. User A predicts "team_a wins"
-# 4. Atualizar resultado (manual ou API)
-# 5. Verificar: User A ganhou +1 ponto
-# 6. User A vê em histórico
-
-# Ligas privadas
-# 1. User A cria liga "Amigos"
-# 2. User A compartilha código
-# 3. User B entra
-# 4. Ranking de liga = apenas A e B
-# 5. Leave liga = remove de league_members
-
-# Admin sync
-# 1. Force erro na API (mock)
-# 2. Verificar: 3 tentativas, depois flag ativa
-# 3. Admin atualiza manual
-# 4. Verificar: Pontos recalculados
-```
 
 ---
 
@@ -160,9 +142,10 @@
 | Fase 1: Setup & Banco | ✅ |
 | Fase 2: Auth & Profile | ✅ |
 | Fase 3: Matches & Predictions | ✅ |
-| Fase 4: Histórico | ⏳ Pendente |
-| Fase 5: Ligas Privadas | ⏳ Pendente |
-| Fase 6: football-data.org | ⏳ Pendente |
-| Fase 7: Admin Panel | ⏳ Pendente |
-| Fase 8: Responsividade | ⏳ Pendente |
-| Fase 9: Deploy | ⏳ Pendente |
+| Fase 4: Histórico | ✅ |
+| Fase 5: Ligas Privadas | ✅ |
+| Fase 6: football-data.org | ✅ |
+| Fase 7: Admin Panel | ✅ |
+| Fase 8: Minhas Estatísticas | ✅ |
+| Fase 9: Responsividade | ⏳ Pendente |
+| Fase 10: Deploy | ⏳ Pendente |
