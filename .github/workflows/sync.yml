@@ -17,6 +17,16 @@ jobs:
 
       - run: npm ci
 
+      - name: Check env vars
+        run: |
+          echo "Supabase URL length: ${#VITE_SUPABASE_URL}"
+          echo "Supabase Key length: ${#VITE_SUPABASE_ANON_KEY}"
+          echo "API Key length: ${#FOOTBALL_DATA_API_KEY}"
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+
       - run: node scripts/sync.cjs
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
