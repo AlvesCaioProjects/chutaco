@@ -5,6 +5,7 @@
 // Or: node scripts/sync.cjs --api-key=YOUR_KEY
 
 const { createClient } = require('@supabase/supabase-js')
+const WebSocket = require('ws')
 const https = require('https')
 const fs = require('fs')
 const path = require('path')
@@ -52,7 +53,9 @@ async function main() {
     process.exit(1)
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    realtime: { transport: WebSocket },
+  })
 
   const { data: comps, error: compError } = await supabase
     .from('competitions')
