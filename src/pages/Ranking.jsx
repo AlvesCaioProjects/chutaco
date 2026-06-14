@@ -13,7 +13,7 @@ export default function Ranking() {
 
   useEffect(() => {
     loadRankings()
-    const interval = setInterval(loadRankings, 30000) // Refresh every 30 seconds
+    const interval = setInterval(loadRankings, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -21,8 +21,6 @@ export default function Ranking() {
     try {
       setError('')
       setLoading(true)
-
-      // Fetch global rankings from view
       const { data: rankingsData, error: rankingsError } = await supabase
         .from('global_rankings')
         .select('*')
@@ -31,20 +29,14 @@ export default function Ranking() {
         .order('current_streak', { ascending: false })
 
       if (rankingsError) throw rankingsError
-
       setRankings(rankingsData || [])
 
-      // Find current user's rank
       const userIndex = rankingsData?.findIndex(r => r.id === user.id)
       if (userIndex !== -1) {
-        setUserRank({
-          position: userIndex + 1,
-          ...rankingsData[userIndex],
-        })
+        setUserRank({ position: userIndex + 1, ...rankingsData[userIndex] })
       }
     } catch (err) {
       setError(err.message || 'Erro ao carregar ranking')
-      console.error('Ranking error:', err)
     } finally {
       setLoading(false)
     }
@@ -52,99 +44,87 @@ export default function Ranking() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando ranking...</p>
-          </div>
+      <div className="min-h-screen page-bg p-4">
+        <div className="max-w-4xl mx-auto text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Carregando ranking...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-4 shadow-lg">
+    <div className="min-h-screen page-bg">
+      <header className="bg-gradient-to-r from-yellow-600 to-amber-600 dark:from-gray-800 dark:to-gray-900 text-white p-4 shadow-lg">
         <div className="max-w-4xl mx-auto">
-          <button
-            onClick={() => navigate('/')}
-            className="text-white hover:text-yellow-100 mb-4 font-bold"
-          >
+          <button onClick={() => navigate('/')} className="text-white hover:text-yellow-100 mb-3 font-bold text-sm">
             ← Voltar
           </button>
-          <h1 className="text-3xl font-bold">🏆 Ranking Global</h1>
-          <p className="text-yellow-100">Veja como você se posiciona</p>
+          <h1 className="text-2xl md:text-3xl font-bold">🏆 Ranking Global</h1>
+          <p className="text-yellow-100 text-sm">Veja como você se posiciona</p>
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-4xl mx-auto p-4">
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
             {error}
           </div>
         )}
 
-        {/* User's Rank Card */}
         {userRank && (
-          <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg shadow-lg p-6 mb-6">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500 dark:from-gray-700 dark:via-gray-800 dark:to-gray-900 text-white rounded-xl shadow-lg p-4 md:p-6 mb-6">
+            <p className="text-xs text-yellow-100 mb-3 font-bold">SEU RANKING</p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
               <div className="text-center">
-                <p className="text-4xl font-bold"># {userRank.position}</p>
-                <p className="text-sm text-green-100">Posição</p>
+                <p className="text-2xl md:text-4xl font-bold">#{userRank.position}</p>
+                <p className="text-xs text-yellow-100">Posição</p>
               </div>
               <div className="text-center">
-                <p className="text-4xl font-bold">{userRank.total_points}</p>
-                <p className="text-sm text-green-100">Pontos</p>
+                <p className="text-2xl md:text-4xl font-bold">{userRank.total_points}</p>
+                <p className="text-xs text-yellow-100">Pontos</p>
               </div>
               <div className="text-center">
-                <p className="text-4xl font-bold">{userRank.accuracy_rate?.toFixed(1)}%</p>
-                <p className="text-sm text-green-100">Taxa</p>
+                <p className="text-2xl md:text-4xl font-bold">{userRank.accuracy_rate?.toFixed(1)}%</p>
+                <p className="text-xs text-yellow-100">Taxa</p>
               </div>
               <div className="text-center">
-                <p className="text-4xl font-bold">{userRank.current_streak}</p>
-                <p className="text-sm text-green-100">Streak</p>
+                <p className="text-2xl md:text-4xl font-bold">{userRank.current_streak}</p>
+                <p className="text-xs text-yellow-100">Streak</p>
               </div>
               <div className="text-center">
-                <p className="text-4xl font-bold">{userRank.total_predictions}</p>
-                <p className="text-sm text-green-100">Palpites</p>
+                <p className="text-2xl md:text-4xl font-bold">{userRank.total_predictions}</p>
+                <p className="text-xs text-yellow-100">Palpites</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Rankings Table */}
         {rankings.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-600 text-lg">Nenhum palpite realizado ainda</p>
+          <div className="card text-center py-12">
+            <p className="text-gray-500">Nenhum palpite realizado ainda</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="card p-0 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-200 border-b-2 border-gray-300">
-                  <tr>
-                    <th className="px-2 md:px-4 py-3 text-left">#</th>
-                    <th className="px-2 md:px-4 py-3 text-left">Usuário</th>
-                    <th className="px-2 md:px-4 py-3 text-center">Pts</th>
-                    <th className="hidden sm:table-cell px-2 md:px-4 py-3 text-center">Taxa</th>
-                    <th className="hidden md:table-cell px-2 md:px-4 py-3 text-center">Streak</th>
-                    <th className="hidden md:table-cell px-2 md:px-4 py-3 text-center">Palpites</th>
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-2 md:px-4 py-3 text-left text-xs md:text-sm font-bold text-gray-600">#</th>
+                    <th className="px-2 md:px-4 py-3 text-left text-xs md:text-sm font-bold text-gray-600">Usuário</th>
+                    <th className="px-2 md:px-4 py-3 text-center text-xs md:text-sm font-bold text-gray-600">Pts</th>
+                    <th className="hidden sm:table-cell px-2 md:px-4 py-3 text-center text-xs md:text-sm font-bold text-gray-600">Taxa</th>
+                    <th className="hidden md:table-cell px-2 md:px-4 py-3 text-center text-xs md:text-sm font-bold text-gray-600">Streak</th>
+                    <th className="hidden md:table-cell px-2 md:px-4 py-3 text-center text-xs md:text-sm font-bold text-gray-600">Palpites</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rankings.map((rank, index) => (
                     <tr
                       key={rank.id}
-                      className={`border-b ${
-                        rank.id === user.id
-                          ? 'bg-green-50 font-bold'
-                          : index % 2 === 0
-                          ? 'bg-white'
-                          : 'bg-gray-50'
-                      } hover:bg-gray-100 transition`}
+                      className={`border-b border-gray-100 ${
+                        rank.id === user.id ? 'bg-green-50 font-bold' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                      } hover:bg-green-50/50 transition`}
                     >
                       <td className="px-2 md:px-4 py-3">
                         <div className="flex items-center gap-1 md:gap-2">
@@ -155,29 +135,21 @@ export default function Ranking() {
                         </div>
                       </td>
                       <td className="px-2 md:px-4 py-3">
-                        <div>
-                          <p className="text-sm md:text-base">{rank.username}</p>
-                          {rank.id === user.id && (
-                            <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">
-                              Você
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-sm md:text-base">{rank.username}</p>
+                        {rank.id === user.id && (
+                          <span className="badge-green text-xs py-0.5">Você</span>
+                        )}
                       </td>
                       <td className="px-2 md:px-4 py-3 text-center font-bold text-base md:text-lg">
                         {rank.total_points}
                       </td>
                       <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-center">
-                        <span className="bg-blue-100 text-blue-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm">
-                          {rank.accuracy_rate?.toFixed(1)}%
-                        </span>
+                        <span className="badge-blue text-xs">{rank.accuracy_rate?.toFixed(1)}%</span>
                       </td>
                       <td className="hidden md:table-cell px-2 md:px-4 py-3 text-center">
-                        <span className="bg-orange-100 text-orange-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm">
-                          {rank.current_streak}
-                        </span>
+                        <span className="badge-orange text-xs">{rank.current_streak}</span>
                       </td>
-                      <td className="hidden md:table-cell px-2 md:px-4 py-3 text-center text-gray-600 text-sm">
+                      <td className="hidden md:table-cell px-2 md:px-4 py-3 text-center text-gray-500 text-sm">
                         {rank.total_predictions}
                       </td>
                     </tr>
@@ -188,22 +160,13 @@ export default function Ranking() {
           </div>
         )}
 
-        {/* Legend */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-bold text-blue-900 mb-3">📊 Legenda das Métricas</h3>
-          <ul className="text-sm text-blue-800 space-y-2">
-            <li>
-              <strong>Pontos:</strong> Total de pontos acumulados (1 ponto por acerto)
-            </li>
-            <li>
-              <strong>Taxa de Acerto:</strong> Percentual de palpites corretos (acertos / total)
-            </li>
-            <li>
-              <strong>Streak:</strong> Maior sequência de acertos consecutivos
-            </li>
-            <li>
-              <strong>Total de Palpites:</strong> Quantidade de palpites realizados
-            </li>
+        <div className="mt-6 card bg-blue-50/50 border-blue-100">
+          <h3 className="font-bold text-blue-900 text-sm mb-2">📊 Legenda das Métricas</h3>
+          <ul className="text-xs text-blue-800 space-y-1">
+            <li><strong>Pontos:</strong> Total acumulado (1 ponto por acerto)</li>
+            <li><strong>Taxa de Acerto:</strong> Percentual de palpites corretos</li>
+            <li><strong>Streak:</strong> Maior sequência de acertos consecutivos</li>
+            <li><strong>Palpites:</strong> Quantidade de palpites realizados</li>
           </ul>
         </div>
       </main>

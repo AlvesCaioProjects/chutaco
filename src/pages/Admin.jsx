@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
+import { useNavigate } from 'react-router-dom'
 
 export default function Admin() {
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [editingMatchId, setEditingMatchId] = useState(null)
-  const [editingResult, setEditingResult] = useState(null)
+  const [syncStatus, setSyncStatus] = useState(null)
   const [syncLogs, setSyncLogs] = useState([])
-  const [lastSync, setLastSync] = useState(null)
+  const [activeTab, setActiveTab] = useState('matches')
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
     loadMatches()
-    loadSyncLogs()
+    loadSyncStatus()
   }, [])
 
   const loadMatches = async () => {
@@ -24,313 +24,245 @@ export default function Admin() {
       setError('')
       setLoading(true)
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: mErr } = await supabase
         .from('matches')
         .select('*')
-        .order('scheduled_time', { ascending: true })
-        .limit(50)
+        .order('scheduled_time', { ascending: false })
 
-      if (fetchError) throw fetchError
+      if (mErr) throw mErr
       setMatches(data || [])
     } catch (err) {
-      setError(err.message || 'Erro ao carregar matches')
+      setError(err.message || 'Erro ao carregar partidas')
     } finally {
       setLoading(false)
     }
   }
 
-  const loadSyncLogs = async () => {
+  const loadSyncStatus = async () => {
     try {
-      const { data, error: logError } = await supabase
+      const { data: syncCount } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .not('external_id', 'is', null)
+
+      const { data: config } = await supabase
+        .from('app_config')
+        .select('*')
+        .eq('key', 'last_sync')
+        .maybeSingle()
+
+      const { data: logs } = await supabase
         .from('sync_logs')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(20)
 
-      if (logError) throw logError
-      setSyncLogs(data || [])
-
-      const last = data?.[0]
-      if (last) setLastSync(last.created_at)
-    } catch (err) {
-      console.error('Error loading sync logs:', err)
-    }
+      setSyncStatus({ total: syncCount?.count || 0, lastSync: config?.value || null })
+      setSyncLogs(logs || [])
+    } catch { }
   }
 
-  const handleUpdateResult = async (matchId, result) => {
+  const handleResultSave = async (matchId, result) => {
     try {
       setError('')
-
-      if (!result) {
-        setError('Selecione um resultado')
-        return
-      }
-
-      const { data: predictions, error: fetchError } = await supabase
-        .from('predictions')
-        .select('*')
-        .eq('match_id', matchId)
-
-      if (fetchError) throw fetchError
-
-      const { error: updateError } = await supabase
+      setSuccess('')
+      const { error: uErr } = await supabase
         .from('matches')
-        .update({ result, updated_at: new Date().toISOString() })
+        .update({ result })
         .eq('id', matchId)
 
-      if (updateError) throw updateError
+      if (uErr) throw uErr
 
-      const updates = predictions.map(pred => ({
-        id: pred.id,
-        points: pred.prediction === result ? 1 : 0,
-      }))
-
-      for (const update of updates) {
-        const { error: predError } = await supabase
-          .from('predictions')
-          .update({ points: update.points })
-          .eq('id', update.id)
-
-        if (predError) throw predError
-      }
-
-      setSuccess(`✅ Resultado atualizado! ${updates.filter(u => u.points === 1).length} acertos`)
-      setEditingMatchId(null)
-      setEditingResult(null)
+      setSuccess(`Resultado atualizado!`)
       await loadMatches()
     } catch (err) {
-      setError(err.message || 'Erro ao atualizar resultado')
+      setError(err.message || 'Erro ao salvar resultado')
     }
   }
 
-  if (loading) {
+  const handleClearResult = async (matchId) => {
+    try {
+      setError('')
+      setSuccess('')
+
+      const match = matches.find(m => m.id === matchId)
+      if (match?.result != null) {
+        const { error: pErr } = await supabase
+          .from('predictions')
+          .update({ points: 0, processed: false })
+          .eq('match_id', matchId)
+
+        if (pErr) throw pErr
+      }
+
+      const { error: uErr } = await supabase
+        .from('matches')
+        .update({ result: null })
+        .eq('id', matchId)
+
+      if (uErr) throw uErr
+
+      setSuccess(`Resultado removido!`)
+      await loadMatches()
+    } catch (err) {
+      setError(err.message || 'Erro ao remover resultado')
+    }
+  }
+
+  if (!user?.is_admin) {
     return (
-      <div className="min-h-screen bg-gray-100 p-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando matches...</p>
-          </div>
+      <div className="min-h-screen page-bg p-4">
+        <div className="max-w-4xl mx-auto text-center py-12">
+          <p className="text-red-500 font-bold">Acesso restrito a administradores</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white p-4 shadow-lg">
+    <div className="min-h-screen page-bg">
+      <header className="bg-gradient-to-r from-gray-800 to-gray-700 dark:from-gray-900 dark:to-black text-white p-4 shadow-lg">
         <div className="max-w-6xl mx-auto">
-          <button
-            onClick={() => navigate('/')}
-            className="text-white hover:text-yellow-100 mb-4 font-bold"
-          >
-            ← Voltar
-          </button>
-          <h1 className="text-3xl font-bold">⚙️ Painel Admin</h1>
-          <p className="text-yellow-100">Sincronize dados e gerencie resultados</p>
+          <button onClick={() => navigate('/')} className="text-white hover:text-gray-300 mb-3 font-bold text-sm">← Voltar</button>
+          <h1 className="text-2xl md:text-3xl font-bold">⚙️ Admin</h1>
+          <p className="text-gray-300 text-sm">Gerenciamento do sistema</p>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto p-4">
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-            {error}
-          </div>
-        )}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">{error}</div>}
+        {success && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm">{success}</div>}
 
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
-            {success}
-          </div>
-        )}
-
-        {/* Sync Section */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">📡 Sincronização football-data.org</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-gray-50 rounded-lg p-4 text-center">
-              <p className="text-sm text-gray-500">Última sincronização</p>
-              <p className="text-lg font-bold">
-                {lastSync
-                  ? new Date(lastSync).toLocaleString('pt-BR')
-                  : 'Nunca'}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4 text-center">
-              <p className="text-sm text-gray-500">Total de logs</p>
-              <p className="text-lg font-bold">{syncLogs.length}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4 text-center">
-              <p className="text-sm text-gray-500">Último status</p>
-              <p className="text-lg font-bold">
-                {syncLogs[0]?.status === 'success' ? '✅ Sucesso' : syncLogs[0]?.status === 'error' ? '❌ Erro' : '-'}
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-bold text-blue-900 mb-2">⚡ Sincronizar via script</h3>
-            <p className="text-sm text-blue-800 mb-3">
-              A API football-data.org não permite chamadas diretas do navegador.
-              Rode o comando abaixo no terminal para sincronizar:
-            </p>
-            <div className="bg-gray-900 text-green-400 rounded-lg p-4 text-sm font-mono mb-3">
-              node scripts/sync.cjs --api-key=SUA_CHAVE_AQUI
-            </div>
-            <p className="text-xs text-blue-700">
-              Ou edite o <code>.env.local</code> com <code>FOOTBALL_DATA_API_KEY=sua_chave</code> e rode apenas <code>node scripts/sync.cjs</code>
-            </p>
-          </div>
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {['matches', 'sync', 'logs'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
+                activeTab === tab ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {tab === 'matches' ? 'Partidas' : tab === 'sync' ? 'Sync Status' : 'Logs'}
+            </button>
+          ))}
         </div>
 
-        {/* Sync Logs */}
-        {syncLogs.length > 0 && (
-          <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-bold">📝 Histórico de Sincronização</h2>
-            </div>
-            <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
-              {syncLogs.map(log => (
-                <div key={log.id} className="px-4 py-2 flex items-center gap-3 text-sm">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    log.status === 'success'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {log.status === 'success' ? '✅' : '❌'}
-                  </span>
-                  <span className="text-gray-600 flex-1">{log.message}</span>
-                  <span className="text-gray-400 text-xs">
-                    {new Date(log.created_at).toLocaleString('pt-BR')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Matches Management */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold">⚽ Gerenciar Matches</h2>
-          </div>
-
-          {matches.length === 0 ? (
-            <div className="p-8 text-center text-gray-600">
-              Nenhum match disponível
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-100 border-b border-gray-200">
-                  <tr>
-                    <th className="hidden sm:table-cell px-2 md:px-4 py-3 text-left text-sm">Data</th>
-                    <th className="px-2 md:px-4 py-3 text-left text-sm">Jogo</th>
-                    <th className="px-2 md:px-4 py-3 text-center text-sm">Resultado</th>
-                    <th className="hidden md:table-cell px-2 md:px-4 py-3 text-center text-sm">Palpites</th>
-                    <th className="px-2 md:px-4 py-3 text-center text-sm">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {matches.map((match, index) => (
-                    <tr
-                      key={match.id}
-                      className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                    >
-                      <td className="hidden sm:table-cell px-2 md:px-4 py-3 text-xs md:text-sm">
-                        {new Date(match.scheduled_time).toLocaleString('pt-BR')}
-                      </td>
-                      <td className="px-2 md:px-4 py-3 font-bold text-sm md:text-base">
-                        <span className="md:hidden">{match.team_a.slice(0, 4)}...</span>
-                        <span className="hidden md:inline">{match.team_a}</span>
-                        <span className="text-gray-400 font-normal text-xs md:text-sm"> vs </span>
-                        <span className="md:hidden">{match.team_b.slice(0, 4)}...</span>
-                        <span className="hidden md:inline">{match.team_b}</span>
-                      </td>
-                      <td className="px-2 md:px-4 py-3 text-center">
-                        {match.result ? (
-                          <span className="bg-green-100 text-green-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-bold">
-                            {match.result === 'team_a' && (match.team_a.length > 8 ? match.team_a.slice(0, 8) + '...' : match.team_a)}
-                            {match.result === 'team_b' && (match.team_b.length > 8 ? match.team_b.slice(0, 8) + '...' : match.team_b)}
-                            {match.result === 'draw' && 'Empate'}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="hidden md:table-cell px-2 md:px-4 py-3 text-center">
-                        <span className="bg-blue-100 text-blue-800 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm">
-                          {match.predictions_count || 0}
-                        </span>
-                      </td>
-                      <td className="px-2 md:px-4 py-3 text-center">
-                        {editingMatchId === match.id ? (
-                          <div className="flex gap-2 justify-center">
-                            <select
-                              value={editingResult || ''}
-                              onChange={(e) => setEditingResult(e.target.value)}
-                              className="px-2 py-1 border border-gray-300 rounded"
-                            >
-                              <option value="">Selecione...</option>
-                              <option value="team_a">{match.team_a}</option>
-                              <option value="draw">Empate</option>
-                              <option value="team_b">{match.team_b}</option>
-                            </select>
-                            <button
-                              onClick={() => handleUpdateResult(match.id, editingResult)}
-                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-bold"
-                            >
-                              ✓
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingMatchId(null)
-                                setEditingResult(null)
-                              }}
-                              className="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setEditingMatchId(match.id)
-                              setEditingResult(match.result || '')
-                            }}
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm font-bold"
-                          >
-                            {match.result ? '✏️ Editar' : '➕ Adicionar'}
-                          </button>
-                        )}
-                      </td>
+        {activeTab === 'matches' && (
+          <div>
+            <div className="card p-0 overflow-hidden mb-6">
+              <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-gray-50">
+                    <tr className="border-b border-gray-200">
+                      <th className="px-3 py-3 text-left text-xs font-bold text-gray-600">Data</th>
+                      <th className="px-3 py-3 text-left text-xs font-bold text-gray-600">Partida</th>
+                      <th className="px-3 py-3 text-center text-xs font-bold text-gray-600">Resultado</th>
+                      <th className="px-3 py-3 text-center text-xs font-bold text-gray-600">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {matches.map(m => (
+                      <tr key={m.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                          {new Date(m.scheduled_time).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="px-3 py-3 text-sm font-medium whitespace-nowrap">{m.team_a} vs {m.team_b}</td>
+                        <td className="px-3 py-3 text-center">
+                          {m.result ? (
+                            <span className="badge-green text-xs whitespace-nowrap">
+                              {m.result === 'team_a' ? m.team_a : m.result === 'team_b' ? m.team_b : 'Empate'}
+                            </span>
+                          ) : (
+                            <span className="badge-red text-xs">Pendente</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex gap-1 justify-center flex-wrap">
+                            {['team_a', 'draw', 'team_b'].map(r => (
+                              <button
+                                key={r}
+                                onClick={() => handleResultSave(m.id, r === 'draw' ? 'draw' : r)}
+                                className={`text-xs px-2 py-1 rounded transition ${
+                                  m.result === r
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                              >
+                                {r === 'team_a' ? m.team_a.slice(0, 3) : r === 'team_b' ? m.team_b.slice(0, 3) : 'Emp'}
+                              </button>
+                            ))}
+                            {m.result && (
+                              <button
+                                onClick={() => handleClearResult(m.id)}
+                                className="text-xs px-2 py-1 rounded bg-red-100 text-red-600 hover:bg-red-200"
+                              >
+                                X
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Instructions */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-bold text-blue-900 mb-3">📋 Instruções</h3>
-          <ul className="text-sm text-blue-800 space-y-2">
-            <li>
-              <strong>1. API Key:</strong> Coloque a chave no <code>.env.local</code> ou passe via <code>--api-key</code>
-            </li>
-            <li>
-              <strong>2. Sincronizar:</strong> Rode <code>npm run sync</code> no terminal para buscar matches da API
-            </li>
-            <li>
-              <strong>3. Editar Resultado:</strong> Use a tabela abaixo para ajustar manualmente resultados
-            </li>
-            <li>
-              <strong>Automático:</strong> Pontos são recalculados automaticamente ao editar um resultado
-            </li>
-          </ul>
-        </div>
+        {activeTab === 'sync' && (
+          <div className="card mb-6">
+            <h3 className="text-sm font-bold text-gray-700 mb-4">📡 Status da Sincronização</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="text-center p-3 bg-blue-50 rounded-lg">
+                <p className="text-2xl font-bold text-blue-600">{syncStatus?.total || 0}</p>
+                <p className="text-xs text-gray-600">Partidas sincronizadas</p>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <p className="text-2xl font-bold text-gray-600">{matches.length}</p>
+                <p className="text-xs text-gray-600">Total de partidas</p>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-600">{matches.filter(m => m.result).length}</p>
+                <p className="text-xs text-gray-600">Com resultado</p>
+              </div>
+              <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                <p className="text-2xl font-bold text-yellow-600">{matches.filter(m => !m.result).length}</p>
+                <p className="text-xs text-gray-600">Sem resultado</p>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs text-gray-600">
+                Última sincronização: {syncStatus?.lastSync ? new Date(syncStatus.lastSync).toLocaleString('pt-BR') : 'Nunca'}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Para sincronizar, execute: <span className="font-mono font-bold">npm run sync</span>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'logs' && (
+          <div className="card mb-6">
+            <h3 className="text-sm font-bold text-gray-700 mb-4">📋 Logs de Sincronização</h3>
+            {syncLogs.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center py-4">Nenhum log encontrado</p>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {syncLogs.map(log => (
+                  <div key={log.id} className={`p-3 rounded-lg text-xs ${log.status === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
+                    <div className="flex justify-between items-start">
+                      <span className="font-bold">{log.status === 'success' ? '✅ Sucesso' : '❌ Erro'}</span>
+                      <span className="text-gray-400">{new Date(log.created_at).toLocaleString('pt-BR')}</span>
+                    </div>
+                    {log.message && <p className="mt-1 text-gray-600">{log.message}</p>}
+                    {log.details && <pre className="mt-1 text-gray-400 text-xs whitespace-pre-wrap max-h-20 overflow-y-auto">{log.details}</pre>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   )
