@@ -4,10 +4,19 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import MatchCard from '../components/MatchCard'
 
+function formatDate(date) {
+  return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+function toISODate(date) {
+  return date.toISOString().split('T')[0]
+}
+
 export default function Matches() {
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [selectedDate, setSelectedDate] = useState(() => new Date())
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -20,9 +29,8 @@ export default function Matches() {
       const { data: matchesData, error: matchesError } = await supabase
         .from('matches')
         .select('*')
-        .gte('scheduled_time', new Date().toISOString())
         .order('scheduled_time', { ascending: true })
-        .limit(50)
+        .limit(100)
 
       if (matchesError) throw matchesError
 
@@ -53,7 +61,8 @@ export default function Matches() {
   const handlePredictionChange = async (matchId, prediction) => {
     try {
       setError('')
-      const userPrediction = matches.find(m => m.id === matchId)?.userPrediction
+      const match = matches.find(m => m.id === matchId)
+      const userPrediction = match?.userPrediction
 
       if (userPrediction) {
         const { error: updateError } = await supabase
@@ -73,6 +82,27 @@ export default function Matches() {
       setError(err.message || 'Erro ao salvar palpite')
     }
   }
+
+  const filteredMatches = matches.filter(m => {
+    const matchDate = toISODate(new Date(m.scheduled_time))
+    return matchDate === toISODate(selectedDate)
+  })
+
+  const goToPrevDay = () => {
+    const prev = new Date(selectedDate)
+    prev.setDate(prev.getDate() - 1)
+    setSelectedDate(prev)
+  }
+
+  const goToNextDay = () => {
+    const next = new Date(selectedDate)
+    next.setDate(next.getDate() + 1)
+    setSelectedDate(next)
+  }
+
+  const goToToday = () => setSelectedDate(new Date())
+
+  const isToday = toISODate(selectedDate) === toISODate(new Date())
 
   if (loading) {
     return (
@@ -104,13 +134,54 @@ export default function Matches() {
           </div>
         )}
 
-        {matches.length === 0 ? (
+        <div className="card mb-6">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={goToPrevDay}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition text-xl"
+              title="Dia anterior"
+            >
+              ◀
+            </button>
+
+            <div className="text-center flex-1 px-2">
+              <p className="font-bold text-gray-800 dark:text-gray-100 text-sm md:text-base">
+                {formatDate(selectedDate)}
+              </p>
+              {!isToday && (
+                <button
+                  onClick={goToToday}
+                  className="text-xs text-green-600 hover:text-green-700 font-bold mt-1"
+                >
+                  Ir para hoje
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={goToNextDay}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition text-xl"
+              title="Dia seguinte"
+            >
+              ▶
+            </button>
+          </div>
+
+          <div className="mt-3 text-center">
+            <span className="text-xs text-gray-500">
+              {filteredMatches.length} {filteredMatches.length === 1 ? 'jogo' : 'jogos'}
+            </span>
+          </div>
+        </div>
+
+        {filteredMatches.length === 0 ? (
           <div className="card text-center py-12">
-            <p className="text-gray-500 text-lg">Nenhum jogo disponível no momento</p>
+            <p className="text-gray-500 dark:text-gray-400 text-lg mb-2">Nenhum jogo nesta data</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm">Use as setas para navegar</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {matches.map(match => (
+            {filteredMatches.map(match => (
               <MatchCard
                 key={match.id}
                 match={match}
