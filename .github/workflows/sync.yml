@@ -10,26 +10,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - run: npm ci
 
       - name: Validate secrets
         run: |
-          if [ -z "$VITE_SUPABASE_URL" ]; then echo "::error::VITE_SUPABASE_URL is empty"; exit 1; fi
-          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then echo "::error::VITE_SUPABASE_ANON_KEY is empty"; exit 1; fi
-          if [ -z "$FOOTBALL_DATA_API_KEY" ]; then echo "::error::FOOTBALL_DATA_API_KEY is empty"; exit 1; fi
-          echo "All secrets are set"
+          [ -z "$VITE_SUPABASE_URL" ] && { echo "VITE_SUPABASE_URL empty"; exit 1; }
+          [ -z "$VITE_SUPABASE_ANON_KEY" ] && { echo "VITE_SUPABASE_ANON_KEY empty"; exit 1; }
+          [ -z "$FOOTBALL_DATA_API_KEY" ] && { echo "FOOTBALL_DATA_API_KEY empty"; exit 1; }
+          echo "All secrets ok"
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
 
-      - run: node scripts/sync.cjs
+      - name: Debug script
+        run: |
+          set -o pipefail
+          node scripts/sync.cjs 2>&1 | tee sync-output.txt
+          echo "Exit code: $?"
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+
+      - name: Show output
+        if: always()
+        run: cat sync-output.txt 2>/dev/null || echo "No output file"
