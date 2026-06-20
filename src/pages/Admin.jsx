@@ -13,9 +13,8 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState('matches')
   const [users, setUsers] = useState([])
   const [selectedMatch, setSelectedMatch] = useState('')
-  const [selectedUser, setSelectedUser] = useState('')
-  const [predictionValue, setPredictionValue] = useState('')
-  const [existingPrediction, setExistingPrediction] = useState(null)
+  const [predictionsMap, setPredictionsMap] = useState({})
+  const [saving, setSaving] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -124,35 +123,46 @@ export default function Admin() {
     } catch {}
   }
 
-  const checkExistingPrediction = async (matchId, userId) => {
-    if (!matchId || !userId) { setExistingPrediction(null); setPredictionValue(''); return }
+  const loadPredictionsForMatch = async (matchId) => {
+    if (!matchId) { setPredictionsMap({}); return }
     const { data } = await supabase
       .from('predictions')
-      .select('*')
+      .select('user_id, prediction')
       .eq('match_id', matchId)
-      .eq('user_id', userId)
-      .maybeSingle()
-    setExistingPrediction(data || null)
-    setPredictionValue(data?.prediction || '')
+    const map = {}
+    for (const p of data || []) {
+      map[p.user_id] = p.prediction
+    }
+    setPredictionsMap(map)
   }
 
-  const handlePredictionSave = async () => {
+  const handleBulkSave = async () => {
     try {
       setError('')
       setSuccess('')
+      setSaving(true)
 
-      if (!selectedMatch || !selectedUser || !predictionValue) {
-        setError('Selecione partida, usuário e palpite')
+      if (!selectedMatch) {
+        setError('Selecione uma partida')
+        return
+      }
+
+      const records = Object.entries(predictionsMap)
+        .filter(([, v]) => v)
+        .map(([userId, prediction]) => ({
+          match_id: selectedMatch,
+          user_id: userId,
+          prediction,
+        }))
+
+      if (records.length === 0) {
+        setError('Nenhum palpite para salvar')
         return
       }
 
       const { error: upsertErr } = await supabase
         .from('predictions')
-        .upsert({
-          match_id: selectedMatch,
-          user_id: selectedUser,
-          prediction: predictionValue,
-        }, {
+        .upsert(records, {
           onConflict: 'user_id,match_id',
           ignoreDuplicates: false,
         })
@@ -161,13 +171,11 @@ export default function Admin() {
 
       await supabase.rpc('recalculate_points')
 
-      setSuccess(`Palpite salvo!`)
-      setSelectedMatch('')
-      setSelectedUser('')
-      setPredictionValue('')
-      setExistingPrediction(null)
+      setSuccess(`${records.length} palpite(s) salvo(s)!`)
     } catch (err) {
-      setError(err.message || 'Erro ao salvar palpite')
+      setError(err.message || 'Erro ao salvar palpites')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -274,14 +282,14 @@ export default function Admin() {
 
         {activeTab === 'predictions' && (
           <div className="card mb-6">
-            <h3 className="text-sm font-bold text-gray-700 mb-4">🎯 Inserir Palpite</h3>
+            <h3 className="text-sm font-bold text-gray-700 mb-4">🎯 Gerenciar Palpites</h3>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-600 mb-1">Partida</label>
                 <select
                   value={selectedMatch}
-                  onChange={e => { setSelectedMatch(e.target.value); checkExistingPrediction(e.target.value, selectedUser) }}
+                  onChange={e => { setSelectedMatch(e.target.value); loadPredictionsForMatch(e.target.value) }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 >
                   <option value="">Selecione uma partida</option>
@@ -294,62 +302,55 @@ export default function Admin() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1">Usuário</label>
-                <select
-                  value={selectedUser}
-                  onChange={e => { setSelectedUser(e.target.value); checkExistingPrediction(selectedMatch, e.target.value) }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                >
-                  <option value="">Selecione um usuário</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.username}</option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedMatch && selectedUser && (
+              {selectedMatch && (
                 <>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">Palpite</label>
-                    <div className="flex gap-2">
-                      {['team_a', 'draw', 'team_b'].map(v => {
-                        const match = matches.find(m => m.id === selectedMatch)
-                        const label = v === 'team_a' ? match?.team_a : v === 'team_b' ? match?.team_b : 'Empate'
-                        return (
-                          <button
-                            key={v}
-                            onClick={() => setPredictionValue(v)}
-                            className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${
-                              predictionValue === v
-                                ? 'bg-green-500 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })}
-                    </div>
+                  <div className="overflow-x-auto max-h-[500px] overflow-y-auto border border-gray-200 rounded-lg">
+                    <table className="w-full">
+                      <thead className="sticky top-0 bg-gray-50">
+                        <tr className="border-b border-gray-200">
+                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-600">Usuário</th>
+                          <th className="px-3 py-2 text-center text-xs font-bold text-gray-600">Time A</th>
+                          <th className="px-3 py-2 text-center text-xs font-bold text-gray-600">Empate</th>
+                          <th className="px-3 py-2 text-center text-xs font-bold text-gray-600">Time B</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map(u => {
+                          const current = predictionsMap[u.id] || ''
+                          return (
+                            <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
+                              <td className="px-3 py-2 text-sm font-medium whitespace-nowrap">{u.username}</td>
+                              {['team_a', 'draw', 'team_b'].map(v => {
+                                const match = matches.find(m => m.id === selectedMatch)
+                                const label = v === 'team_a' ? match?.team_a : v === 'team_b' ? match?.team_b : 'Empate'
+                                return (
+                                  <td key={v} className="px-1 py-2 text-center">
+                                    <button
+                                      onClick={() => setPredictionsMap(prev => ({ ...prev, [u.id]: prev[u.id] === v ? '' : v }))}
+                                      className={`w-full px-2 py-1 rounded text-xs font-bold transition ${
+                                        current === v
+                                          ? 'bg-green-500 text-white'
+                                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                      }`}
+                                    >
+                                      {label}
+                                    </button>
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
                   </div>
 
-                  {existingPrediction && (
-                    <p className="text-xs text-blue-600">
-                      Palpite existente: {existingPrediction.prediction === 'team_a'
-                        ? matches.find(m => m.id === selectedMatch)?.team_a
-                        : existingPrediction.prediction === 'team_b'
-                        ? matches.find(m => m.id === selectedMatch)?.team_b
-                        : 'Empate'}
-                      {existingPrediction.points != null && ` — ${existingPrediction.points === 1 ? '✅ Acerto' : '❌ Erro'}`}
-                    </p>
-                  )}
-
                   <button
-                    onClick={handlePredictionSave}
-                    disabled={!predictionValue}
+                    onClick={handleBulkSave}
+                    disabled={saving || Object.values(predictionsMap).filter(Boolean).length === 0}
                     className="btn-primary w-full disabled:opacity-50"
                   >
-                    {existingPrediction ? 'Atualizar Palpite' : 'Salvar Palpite'}
+                    {saving ? 'Salvando...' : `Salvar ${Object.values(predictionsMap).filter(Boolean).length} palpite(s)`}
                   </button>
                 </>
               )}
